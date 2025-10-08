@@ -1,0 +1,35 @@
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AdOptimizer Login</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Arial, sans-serif; background:#0b0f14; color:#e6edf3; height:100vh; display:flex; align-items:center; justify-content:center; }
+    .card { background:#0f1720; border:1px solid #1f2937; border-radius:16px; padding:24px; width:320px; box-shadow:0 10px 30px rgba(0,0,0,0.3); }
+    h2 { margin-top:0; }
+    label { display:block; margin:12px 0 6px; color:#9fb3c8; }
+    input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid #1f2937; background:#0b1220; color:#e6edf3; }
+    button { width:100%; margin-top:16px; padding:10px 12px; border:none; border-radius:10px; background:#2563eb; color:white; font-weight:600; cursor:pointer; }
+    .err { color:#ef4444; margin-top:8px; min-height:20px; }
+    .hint { color:#9fb3c8; font-size:12px; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <form class="card" method="POST" action="/login">
+    <h2>Accedi</h2>
+    <label>Username</label>
+    <input name="username" autocomplete="username" required>
+    <label>Password</label>
+    <input name="password" type="password" autocomplete="current-password" required>
+    <button type="submit">Login</button>
+    <div class="err" id="err"></div>
+    <div class="hint">Default: admin / roi400</div>
+  </form>
+  <script>
+    const p = new URLSearchParams(location.search);
+    if (p.get('error')==='1'){ document.getElementById('err').textContent = 'Credenziali non valide.'; }
+  </script>
+</body>
+</html>

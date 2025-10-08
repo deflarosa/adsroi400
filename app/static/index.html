@@ -1,0 +1,160 @@
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AdOptimizer ROI 400+ (Demo)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Arial, sans-serif; background:#0b0f14; color:#e6edf3; margin:0; }
+    header { padding: 16px 24px; background:#0f1720; border-bottom:1px solid #1f2937; display:flex; justify-content:space-between; align-items:center;}
+    .wrap { padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
+    .card { background:#0f1720; border:1px solid #1f2937; border-radius:16px; padding:16px; margin-bottom:16px; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding:8px 10px; border-bottom:1px solid #1f2937; text-align:left; }
+    th { color:#9fb3c8; font-weight:600; }
+    .ok { color:#22c55e; }
+    .bad { color:#ef4444; }
+    input, select { background:#0b1220; color:#e6edf3; border:1px solid #1f2937; padding:8px 10px; border-radius:10px; }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<header>
+  <h2>AdOptimizer ROI 400+ — Demo</h2>
+  <div class="controls">
+    <label>Start <input type="date" id="start"></label>
+    <label>End <input type="date" id="end"></label>
+    <button onclick="loadRange()">Carica storico</button>
+    <button onclick="seed()">Inserisci dati di esempio</button>
+  </div>
+</header>
+<div class="wrap">
+  <div class="grid">
+    <div class="card">
+      <h3>Storico giornaliero (tabella)</h3>
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th>Data</th><th>Piattaforma</th><th>Prodotto</th><th>Spesa</th>
+            <th>Fatt. Lordo</th><th>Fatt. Netto</th><th>Ricavi Netti</th>
+            <th>ROAS Lordo</th><th>ROAS Netto</th><th>ROI Netto</th><th>Vendite</th><th>CPA</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>ROI Netto per giorno</h3>
+      <canvas id="roiChart"></canvas>
+    </div>
+    <div class="card">
+      <h3>Spesa vs Fatturato</h3>
+      <canvas id="sfChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin;
+
+async function loadRange() {
+  const s = document.getElementById('start').value;
+  const e = document.getElementById('end').value;
+  if (!s || !e) { alert('Seleziona start e end'); return; }
+  const resp = await fetch(`${API}/report/range?start=${s}&end=${e}`);
+  const data = await resp.json();
+  renderTable(data);
+  renderCharts(data);
+}
+
+function renderTable(rows){
+  const tb = document.querySelector('#tbl tbody');
+  tb.innerHTML = '';
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    const ok = r.roi_net >= 1.0 ? 'ok' : 'bad';
+    tr.innerHTML = `
+      <td>${r.data}</td><td>${r.piattaforma}</td><td>${r.prodotto}</td>
+      <td>${r.spesa.toFixed(2)}</td><td>${r.fatturato_lordo.toFixed(2)}</td>
+      <td>${r.fatturato_netto.toFixed(2)}</td><td>${r.ricavi_net.toFixed(2)}</td>
+      <td>${r.roas_lordo.toFixed(2)}</td><td>${r.roas_net.toFixed(2)}</td>
+      <td class="${ok}">${r.roi_net.toFixed(2)}</td><td>${r.vendite}</td><td>${r.cpa.toFixed(2)}</td>
+    `;
+    tb.appendChild(tr);
+  });
+}
+
+let roiChart, sfChart;
+function renderCharts(rows){
+  const byDay = {};
+  rows.forEach(r => {
+    if(!byDay[r.data]) byDay[r.data] = {spesa:0, fatturato:0, roi:[]};
+    byDay[r.data].spesa += r.spesa;
+    byDay[r.data].fatturato += r.fatturato_lordo; // grafico lordo per confronto
+    byDay[r.data].roi.push(r.roi_net);
+  });
+  const labels = Object.keys(byDay).sort();
+  const roi = labels.map(d => {
+    const arr = byDay[d].roi; 
+    return arr.reduce((a,b)=>a+b,0) / arr.length;
+  });
+  const spesa = labels.map(d => byDay[d].spesa);
+  const fatt = labels.map(d => byDay[d].fatturato);
+
+  if(roiChart) roiChart.destroy();
+  if(sfChart) sfChart.destroy();
+
+  const ctx1 = document.getElementById('roiChart').getContext('2d');
+  roiChart = new Chart(ctx1, {
+    type: 'line',
+    data: { labels, datasets: [{ label: 'ROI Netto', data: roi }] },
+    options: { responsive: true, plugins: { legend: { display: true } } }
+  });
+
+  const ctx2 = document.getElementById('sfChart').getContext('2d');
+  sfChart = new Chart(ctx2, {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Spesa', data: spesa },
+      { label: 'Fatturato Lordo', data: fatt }
+    ]},
+    options: { responsive: true, plugins: { legend: { display: true } } }
+  });
+}
+
+async function seed(){
+  // Inserisce 8 giorni di dati fittizi per demo
+  const today = new Date();
+  for (let i=7;i>=0;i--){
+    const d = new Date(today); d.setDate(today.getDate()-i);
+    const day = d.toISOString().slice(0,10);
+    for (const piattaforma of ['Google Ads','Facebook Ads']){
+      for (const prodotto of ['Prodotto A','Prodotto B']){
+        const spesa = Math.round((40 + Math.random()*110)*100)/100;
+        const vendite = Math.floor( (spesa/7) * (0.8 + Math.random()*0.8) / 1 ); // proxy
+        const fatt_lordo = spesa * (2 + Math.random()*2.5);
+        // 3 fasce orarie
+        for (const ora of ['10:00','14:00','18:00']){
+          await fetch(`${API}/ingest`,{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              data: day, ora, piattaforma, prodotto,
+              campagna: `${piattaforma}-${prodotto}`,
+              adset: null, impression: 1000, clic: 120, conversioni: vendite, vendite,
+              spesa: +(spesa/3).toFixed(2), fatturato_lordo: +(fatt_lordo/3).toFixed(2)
+            })
+          });
+        }
+      }
+    }
+    await fetch(`${API}/report/build/${day}`,{method:'POST'});
+  }
+  alert('Dati demo inseriti! Seleziona un intervallo e premi "Carica storico".');
+}
+</script>
+</body>
+</html>

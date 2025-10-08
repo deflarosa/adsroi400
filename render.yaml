@@ -1,0 +1,11 @@
+
+services:
+  - type: web
+    name: adoptimizer-roi400
+    env: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
